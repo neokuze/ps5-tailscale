@@ -138,6 +138,8 @@ type daemon struct {
 	latest        releaseInfo    // newest release known, see update.go
 	update        updateProgress // an update being installed, see selfupdate.go
 
+	rp remotePlay // pairing a Remote Play client, see remoteplay.go
+
 	sessions   sessions         // browsers that have entered the password
 	access     accessCache      // recent decisions about who may connect
 	tailnetWeb *tailnetListener // status page connections arriving over the tailnet

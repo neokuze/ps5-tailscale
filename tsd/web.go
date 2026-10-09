@@ -118,6 +118,8 @@ func (d *daemon) webHandler() http.Handler {
 	mux.HandleFunc("GET /api/files", d.protect(d.handleFiles))
 	mux.HandleFunc("GET /api/files/get", d.protect(d.handleFileGet))
 	mux.HandleFunc("GET /api/diagnostics", d.protect(d.handleDiagnostics))
+	mux.HandleFunc("GET /api/rp/status", d.protect(d.handleRPStatus))
+	mux.HandleFunc("GET /api/rp/users", d.protect(d.handleRPUsers))
 	for path, h := range map[string]http.HandlerFunc{
 		"/api/config":     d.handleSetConfig,
 		"/api/login":      d.handleLogin,
@@ -131,6 +133,8 @@ func (d *daemon) webHandler() http.Handler {
 		"/api/wakelist":   d.handleWakeList,
 		"/api/wake":       d.handleWake,
 		"/api/update":     d.handleUpdate,
+		"/api/rp/pair":    d.handleRPPair,
+		"/api/rp/cancel":  d.handleRPCancel,
 	} {
 		mux.HandleFunc("POST "+path, d.protect(d.guard(h)))
 	}

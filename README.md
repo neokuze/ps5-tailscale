@@ -510,6 +510,14 @@ learned about running Go on the PS5.
   and [elfldr](https://github.com/ps5-payload-dev/elfldr).
 - itsPLK's [Payload Manager](https://github.com/itsPLK/ps5-payload-manager),
   whose app-icon installer this follows.
+- holdmysocks' [ps5-tailscale](https://github.com/holdmysocks/ps5-tailscale),
+  which this is a fork of.
+- phantomptr's [ps5upload](https://github.com/phantomptr/ps5upload) (GPL-3.0),
+  whose Remote Play work (the registry keys for user and account IDs, the
+  calls and their quirks, tested on FW 13.60) the pairing helper is based on.
+- idlesauce's [ps5-remoteplay-get-pin](https://github.com/idlesauce/ps5-remoteplay-get-pin),
+  which showed that `sceRemoteplayGeneratePinCode` works from a payload. No
+  code is taken from it; the pairing helper is written from scratch.
 
 ## License
 

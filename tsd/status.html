@@ -224,6 +224,27 @@
     <p class="note" id="sunshine-state" style="margin: 12px 0 0"></p>
   </section>
 
+  <section class="panel hidden" id="rppanel">
+    <h2>Remote Play from anywhere</h2>
+    <p class="note">Pair Chiaki, chiaki-ng or PXPlay with this console while you are away. The device you pair needs
+      Tailscale too. In the client, add the console by hand at <strong id="rpaddr">its tailnet address</strong>
+      (finding consoles automatically does not work over Tailscale), choose Register, and enter the PIN and the
+      account ID below.</p>
+    <div class="actions">
+      <button id="btn-rppair">Make a PIN</button>
+      <button id="btn-rpcancel" class="small hidden">Cancel</button>
+    </div>
+    <dl id="rpfacts" class="hidden"></dl>
+    <p class="okmsg hidden" id="rpok"></p>
+    <p class="msg hidden" id="rpmsg"></p>
+    <details id="rpusersbox">
+      <summary><span class="heading">Accounts on this console</span></summary>
+      <p class="note">A client registers with the account of the user signed in on the console. Users without a
+        PSN-activated account cannot be used for Remote Play.</p>
+      <div id="rpusers">Loading…</div>
+    </details>
+  </section>
+
   <section class="panel hidden" id="wakepanel">
     <h2>Wake a device at home</h2>
     <p class="note">A sleeping PC cannot be reached over Tailscale, but this console is on the same home network and
@@ -710,6 +731,8 @@ async function refresh() {
     : 'No Sunshine host is forwarded.';
 
   // Devices to wake.
+  $('rppanel').classList.toggle('hidden', s.state !== 'Running');
+  $('rpaddr').textContent = s.dnsName || (s.ips && s.ips[0]) || 'its tailnet address';
   $('wakepanel').classList.toggle('hidden', s.state !== 'Running' && !s.wake.length);
   const wakeNow = JSON.stringify(s.wake);
   if (!wakeDirty && wakeNow !== lastWake) {
@@ -994,6 +1017,53 @@ $('peervpn').checked = stored('peersShowVPN') === '1';
 $('peersearch').oninput = renderPeers;
 $('peeronline').onchange = () => { store('peersOnlineOnly', $('peeronline').checked ? '1' : '0'); renderPeers(); };
 $('peervpn').onchange = () => { store('peersShowVPN', $('peervpn').checked ? '1' : '0'); refresh(); };
+
+// Remote Play pairing (see remoteplay.go).
+let rpPolling = null;
+function rpRender(p) {
+  const waiting = p.state === 'starting' || p.state === 'waiting';
+  $('btn-rppair').textContent = waiting ? 'Make a new PIN' : 'Make a PIN';
+  $('btn-rpcancel').classList.toggle('hidden', !waiting);
+  const dl = $('rpfacts');
+  dl.innerHTML = '';
+  if (p.state === 'waiting') {
+    const left = Math.max(0, Math.round((new Date(p.expires) - Date.now()) / 1000));
+    row(dl, 'PIN', p.pin);
+    row(dl, 'Account ID', p.accountId);
+    row(dl, 'Expires in', Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0'));
+  } else if (p.state === 'starting') {
+    row(dl, 'PIN', 'Asking the console…');
+  }
+  dl.classList.toggle('hidden', !dl.children.length);
+  show('rpok', p.state === 'paired' ? 'Paired. Connect from the client now.' : '');
+  show('rpmsg', p.state === 'failed' ? 'Pairing failed: ' + p.error : '');
+  if (waiting && !rpPolling) rpPolling = setInterval(rpPoll, 1000);
+  if (!waiting && rpPolling) { clearInterval(rpPolling); rpPolling = null; }
+}
+async function rpPoll() {
+  try { rpRender(await (await api('/api/rp/status')).json()); } catch (e) {}
+}
+async function rpPost(path) {
+  try { rpRender(await (await api(path, {method: 'POST'})).json()); } catch (e) { show('rpmsg', e.message); }
+}
+async function rpLoadUsers() {
+  const box = $('rpusers');
+  try {
+    const r = await api('/api/rp/users');
+    if (!r.ok) { box.textContent = await r.text(); return; }
+    const users = await r.json();
+    box.innerHTML = '';
+    const dl = document.createElement('dl');
+    for (const u of users) {
+      row(dl, (u.name || 'User ' + u.slot) + (u.signedIn ? ' (signed in)' : ''), u.accountId || 'no PSN account');
+    }
+    box.append(users.length ? dl : document.createTextNode('No users found.'));
+  } catch (e) { box.textContent = e.message; }
+}
+$('btn-rppair').onclick = () => rpPost('/api/rp/pair');
+$('btn-rpcancel').onclick = () => rpPost('/api/rp/cancel');
+$('rpusersbox').ontoggle = () => { if ($('rpusersbox').open) rpLoadUsers(); };
+rpPoll();
 
 refresh();
 setInterval(refresh, 3000);

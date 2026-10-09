@@ -1,5 +1,5 @@
 # Build a Go program for the PS5 and wrap it in the launcher payload.
-#   .\tools\build-payload.ps1 -GoDir tsd -Name tailscale -Version 0.5.2 -HomeIcon
+#   .\tools\build-payload.ps1 -GoDir tsd -Name tailscale -Version 0.5.2 -HomeIcon -RemotePlay
 #   .\tools\build-payload.ps1 -GoDir probe-go -Name probe [-DebugLoader] [-Watchdog 120] [-Send]
 param(
     [Parameter(Mandatory = $true)][string]$GoDir,
@@ -12,6 +12,7 @@ param(
     [string]$GoDebug = '',     # GODEBUG value baked into the launcher
     [int]$Watchdog = 0,        # test builds: kill the process after this many seconds
     [switch]$HomeIcon,         # embed the helper that adds the home screen icon on first run
+    [switch]$RemotePlay,       # embed the Remote Play pairing helper (rpair/)
     [switch]$DebugLoader,      # print loader details and early crash registers
     [switch]$KeepSymbols,
     [switch]$Send,
@@ -55,8 +56,16 @@ if ($HomeIcon) {
         -o $helper (Join-Path $DevRoot 'appicon\main.c')
     $ccArgs += "-DICON_HELPER=`"$($helper -replace '\\', '/')`""
 }
+if ($RemotePlay) {
+    # Its own payload too, so libSceRemoteplay never loads into the daemon.
+    $rpair = Join-Path $out 'rpair.elf'
+    Invoke-PS5CC -O2 -Wall -lSceUserService -lSceRegMgr -lSceSystemService `
+        -o $rpair (Join-Path $DevRoot 'rpair\main.c')
+    $ccArgs += "-DRPAIR_HELPER=`"$($rpair -replace '\\', '/')`""
+}
 $ccArgs += @('-o', $elf, (Join-Path $DevRoot 'launcher\main.c'), (Join-Path $DevRoot 'launcher\goload.c'),
-    (Join-Path $DevRoot 'launcher\homeicon.c'), (Join-Path $DevRoot 'launcher\report.c'))
+    (Join-Path $DevRoot 'launcher\homeicon.c'), (Join-Path $DevRoot 'launcher\rpair.c'),
+    (Join-Path $DevRoot 'launcher\report.c'))
 Invoke-PS5CC @ccArgs
 
 Write-Host ("built {0} ({1:N1} MB)" -f $elf, ((Get-Item $elf).Length / 1MB))

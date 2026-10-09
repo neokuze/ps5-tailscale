@@ -12,6 +12,7 @@
 
 #include "goload.h"
 #include "homeicon.h"
+#include "rpair.h"
 #include "report.h"
 
 #ifndef GO_IMAGE
@@ -157,6 +158,7 @@ main(int argc, char **argv) {
 
   report_begin();
   home_icon_install_once();
+  rpair_helper_save();
 
   if (leave_realtime_class()) {
     /* Without this a runaway goroutine could hang the console, so do not

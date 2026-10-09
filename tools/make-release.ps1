@@ -19,7 +19,7 @@ $ErrorActionPreference = 'Stop'
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "version must look like 1.2.3, not '$Version'" }
 
-& (Join-Path $PSScriptRoot 'build-payload.ps1') -GoDir tsd -Name tailscale -Version $Version -HomeIcon
+& (Join-Path $PSScriptRoot 'build-payload.ps1') -GoDir tsd -Name tailscale -Version $Version -HomeIcon -RemotePlay
 
 $rel = Join-Path $DevRoot "out\release-$Version"
 New-Item -ItemType Directory -Force $rel | Out-Null

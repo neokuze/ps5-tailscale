@@ -1,0 +1,14 @@
+{
+  "name": "neokuze/ps5-tailscale",
+  "payloads": [
+    {
+      "name": "Tailscale (Remote Play)",
+      "filename": "ps5-tailscale.elf",
+      "url": "https://github.com/neokuze/ps5-tailscale/releases/download/v1.0.0/tailscale-1.0.0.elf",
+      "description": "Puts the PS5 on your Tailscale network for Remote Play from anywhere. Pair Chiaki with a PIN from the status page on port 8090.",
+      "version": "v1.0.0",
+      "category": "Networking",
+      "checksum": "77a1df19da8c269c4738dd9cffa054ce0a0a3993a8f3d8b3b9a10ea1f22d4d36"
+    }
+  ]
+}

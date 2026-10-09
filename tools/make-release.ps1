@@ -2,6 +2,7 @@
 #   tailscale-<version>.elf       the payload
 #   tailscale-<version>.elf.sig   its signature, which the status page's "Install" checks
 #   SHA256SUMS.txt
+# and updates payloads.json at the repository root (commit it after publishing).
 #
 #   .\tools\make-release.ps1 -Version 1.2.3
 #
@@ -50,6 +51,23 @@ if ($PlainName) {
     $sums += "$hash  tailscale.elf`n"
 }
 [IO.File]::WriteAllText((Join-Path $rel 'SHA256SUMS.txt'), $sums)
+
+# The Payload Manager catalog (CUSTOM_REPOSITORIES.md in its repository),
+# committed at the repository root after the release is published. The file
+# name stays the same across versions so that autoload settings keep working.
+$catalog = [ordered]@{
+    name     = 'neokuze/ps5-tailscale'
+    payloads = @([ordered]@{
+        name        = 'Tailscale (Remote Play)'
+        filename    = 'ps5-tailscale.elf'
+        url         = "https://github.com/neokuze/ps5-tailscale/releases/download/v$Version/$name"
+        description = 'Puts the PS5 on your Tailscale network for Remote Play from anywhere. Pair Chiaki with a PIN from the status page on port 8090.'
+        version     = "v$Version"
+        category    = 'Networking'
+        checksum    = $hash
+    })
+}
+[IO.File]::WriteAllText((Join-Path $DevRoot 'payloads.json'), ($catalog | ConvertTo-Json -Depth 4) + "`n")
 
 Get-ChildItem $rel | Select-Object Name, Length | Format-Table -AutoSize
 Write-Host "release files are in $rel"

@@ -30,7 +30,7 @@ import (
 // Ed25519). Only releases signed with the private half can be installed from
 // the status page. A fork that makes its own releases needs its own key
 // (tsd/cmd/signrelease); test builds set another one with -ldflags -X.
-var updatePublicKey = "HUcHCXGe3vNEeyt4frmoKZUqYDamdA1dzsr+Hsybda0="
+var updatePublicKey = "/86iaZDaf+hr9ctOtFinMiZUm55kJ2/vSYfYQLWsr2c="
 
 const (
 	maxPayload    = 128 << 20

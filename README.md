@@ -1,6 +1,23 @@
-# Tailscale for jailbroken PS5
+# Tailscale for jailbroken PS5: Remote Play from anywhere
 
-Puts a jailbroken PS5 on your [Tailscale](https://tailscale.com) network.
+Puts a jailbroken PS5 on your [Tailscale](https://tailscale.com) network, so
+you can play it with Remote Play while you travel.
+
+> **This is a fork** of [holdmysocks/ps5-tailscale](https://github.com/holdmysocks/ps5-tailscale),
+> made for easy Remote Play away from home. What it changes:
+>
+> - **Pairing from the status page.** A **Make a PIN** button and the list of
+>   the console's users with their account IDs, which Chiaki asks for. This
+>   is a from-scratch reimplementation of what
+>   [ps5-remoteplay-get-pin](https://github.com/idlesauce/ps5-remoteplay-get-pin)
+>   does, based on the Remote Play work in
+>   [ps5upload](https://github.com/phantomptr/ps5upload). No need to be at
+>   home, or to send a separate payload, to register a new device.
+> - **Moonlight/Sunshine streaming removed**, to keep it about Remote Play.
+> - **Updates come from this fork**, signed with its own key, and it can be
+>   installed and updated from [Payload Manager](#install-with-payload-manager).
+>
+> Tested on firmware 13.60 with Chiaki.
 
 - **Reach the console from anywhere.** FTP, the payload loader, web tools:
   whatever listens on the console is available at its tailnet address from
@@ -49,6 +66,18 @@ VPN here. It runs inside one process:
 - A Tailscale account.
 
 Tested on firmware 13.42 with elfldr 0.26.
+
+## Install with Payload Manager
+
+In [Payload Manager](https://github.com/itsPLK/ps5-payload-manager), go to
+**Settings > Manage Sources > Add Source** and add:
+
+```
+https://raw.githubusercontent.com/neokuze/ps5-tailscale/main/payloads.json
+```
+
+Tailscale for PS5 then shows up in the catalog, and Payload Manager offers
+each new release as an update.
 
 ## Install
 

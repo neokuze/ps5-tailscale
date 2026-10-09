@@ -31,14 +31,6 @@ var faviconPNG []byte
 // console out. Who may use the page at all is decided in auth.go.
 const apiHeader = "X-PS5-Tailscale"
 
-// sunshineInfo is a forwarded Sunshine host as the status page shows it.
-type sunshineInfo struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
-	// Address is what to enter in a Moonlight client on the console.
-	Address string `json:"address"`
-}
-
 type statusInfo struct {
 	Version  string     `json:"version"`
 	State    string     `json:"state"`
@@ -54,11 +46,9 @@ type statusInfo struct {
 	// Peers when the page asks for them (?vpn=1).
 	VPNServers peerCount `json:"vpnServers"`
 	Proxy      string    `json:"proxy,omitempty"`
-	// SunshineHosts and Forwards describe the local forwards.
-	SunshineHosts []sunshineInfo `json:"sunshineHosts"`
-	Forwards      []string       `json:"forwards"`
-	// UserForwards are the forwards the user set up, as opposed to the ones
-	// that belong to a Sunshine host.
+	// Forwards describe the running local forwards.
+	Forwards []string `json:"forwards"`
+	// UserForwards are the forwards the user set up.
 	UserForwards []forwardRule `json:"userForwards"`
 	// Wake lists the devices the page can wake.
 	Wake []wakeTarget `json:"wake"`
@@ -126,7 +116,6 @@ func (d *daemon) webHandler() http.Handler {
 		"/api/logout":     d.handleLogout,
 		"/api/quit":       d.handleQuit,
 		"/api/uninstall":  d.handleUninstall,
-		"/api/sunshine":   d.handleSunshine,
 		"/api/forwards":   d.handleForwards,
 		"/api/pingpeer":   d.handlePingPeer,
 		"/api/testtarget": d.handleTestTarget,
@@ -202,19 +191,18 @@ func (d *daemon) handleLogs(w http.ResponseWriter, r *http.Request) {
 func (d *daemon) handleStatus(w http.ResponseWriter, r *http.Request) {
 	d.mu.Lock()
 	info := statusInfo{
-		Version:       version,
-		State:         d.state,
-		AuthURL:       d.authURL,
-		Error:         d.lastErr,
-		Hostname:      d.cfg.Hostname,
-		Proxy:         d.cfg.HTTPProxyAddr,
-		Priority:      priorityLow,
-		AllowFrom:     accessAll,
-		PasswordSet:   d.cfg.PasswordHash != "",
-		Uptime:        int64(time.Since(d.started).Seconds()),
-		IPs:           []string{},
-		Peers:         []peerInfo{},
-		SunshineHosts: []sunshineInfo{},
+		Version:     version,
+		State:       d.state,
+		AuthURL:     d.authURL,
+		Error:       d.lastErr,
+		Hostname:    d.cfg.Hostname,
+		Proxy:       d.cfg.HTTPProxyAddr,
+		Priority:    priorityLow,
+		AllowFrom:   accessAll,
+		PasswordSet: d.cfg.PasswordHash != "",
+		Uptime:      int64(time.Since(d.started).Seconds()),
+		IPs:         []string{},
+		Peers:       []peerInfo{},
 	}
 	if d.cfg.Priority == priorityHigh {
 		info.Priority = priorityHigh
@@ -224,9 +212,6 @@ func (d *daemon) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	info.UserForwards = append([]forwardRule{}, d.cfg.Forwards...)
 	info.Wake = append([]wakeTarget{}, d.cfg.Wake...)
-	for _, h := range d.cfg.SunshineHosts {
-		info.SunshineHosts = append(info.SunshineHosts, sunshineInfo{Host: h.Host, Port: h.basePort(), Address: h.clientAddress()})
-	}
 	if newerVersion(version, d.latest.Version) {
 		info.LatestVersion, info.UpdateURL = d.latest.Version, d.latest.URL
 		info.CanUpdate = canInstall(d.latest)
@@ -333,39 +318,6 @@ func (d *daemon) handleLogout(w http.ResponseWriter, r *http.Request) {
 	d.notified = ""
 	d.mu.Unlock()
 	d.logf("logged out via the status page")
-	io.WriteString(w, "ok\n")
-}
-
-// handleSunshine replaces the list of Sunshine hosts whose streaming ports are
-// forwarded from 127.0.0.1, saves the config and applies it at once.
-func (d *daemon) handleSunshine(w http.ResponseWriter, r *http.Request) {
-	var hosts []sunshineHost
-	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&hosts); err != nil {
-		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	for i := range hosts {
-		hosts[i].Host = strings.TrimSpace(hosts[i].Host)
-		if hosts[i].Port == sunshineDefaultPort {
-			hosts[i].Port = 0
-		}
-	}
-	if err := validateSunshineHosts(hosts); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	d.mu.Lock()
-	d.cfg.SunshineHosts = hosts
-	cfg := d.cfg
-	d.mu.Unlock()
-	if err := saveConfig(d.cfgPath, cfg); err != nil {
-		d.logf("saving config: %v", err)
-	}
-	d.logf("sunshine hosts set to %v", hosts)
-	if err := d.fwd.set(d.localForwardRules()); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	io.WriteString(w, "ok\n")
 }
 
@@ -513,7 +465,6 @@ func (d *daemon) handleForwards(w http.ResponseWriter, r *http.Request) {
 func (d *daemon) checkForwardPorts(rules []forwardRule) (forwardRule, error) {
 	d.mu.Lock()
 	webPort, proxyPort := d.webPort, d.proxyPort
-	sunshine := sunshineRules(d.cfg.SunshineHosts)
 	d.mu.Unlock()
 	running := map[forwardRule]bool{}
 	for _, r := range d.fwd.rules() {
@@ -524,12 +475,6 @@ func (d *daemon) checkForwardPorts(rules []forwardRule) (forwardRule, error) {
 		port, _ := strconv.Atoi(portStr)
 		if r.Proto == "tcp" && (uint16(port) == webPort || (proxyPort != 0 && uint16(port) == proxyPort)) {
 			return r, fmt.Errorf("port %d on the console is used by this page or the HTTP proxy", port)
-		}
-		for _, s := range sunshine {
-			_, sp, _ := net.SplitHostPort(s.Listen)
-			if s.Proto == r.Proto && sp == portStr {
-				return r, fmt.Errorf("%s port %d on the console is used by game streaming", r.Proto, port)
-			}
 		}
 		if r.Proto != "tcp" || running[r] {
 			continue // one of ours already, or UDP, which cannot be probed

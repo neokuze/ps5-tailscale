@@ -33,19 +33,18 @@ const (
 
 // settings is the editable part of the config as the status page sees it.
 type settings struct {
-	Hostname      string         `json:"hostname"`
-	WebAddr       string         `json:"webAddr"`
-	HTTPProxyAddr string         `json:"httpProxyAddr"`
-	SunshineHosts []sunshineHost `json:"sunshineHosts"`
-	Forwards      []forwardRule  `json:"forwards"`
-	UDPPorts      []uint16       `json:"udpPorts"`
-	BlockedPorts  []uint16       `json:"blockedPorts"`
-	Priority      string         `json:"priority"`
-	AllowFrom     string         `json:"allowFrom"`
-	PayloadPath   string         `json:"payloadPath"`
-	ReceiveDir    string         `json:"receiveDir"`
-	CheckUpdates  bool           `json:"checkUpdates"`
-	Verbose       bool           `json:"verbose"`
+	Hostname      string        `json:"hostname"`
+	WebAddr       string        `json:"webAddr"`
+	HTTPProxyAddr string        `json:"httpProxyAddr"`
+	Forwards      []forwardRule `json:"forwards"`
+	UDPPorts      []uint16      `json:"udpPorts"`
+	BlockedPorts  []uint16      `json:"blockedPorts"`
+	Priority      string        `json:"priority"`
+	AllowFrom     string        `json:"allowFrom"`
+	PayloadPath   string        `json:"payloadPath"`
+	ReceiveDir    string        `json:"receiveDir"`
+	CheckUpdates  bool          `json:"checkUpdates"`
+	Verbose       bool          `json:"verbose"`
 
 	// PasswordSet says whether a password is in place. Password is only
 	// read: absent leaves the password alone, empty removes it, anything
@@ -59,7 +58,6 @@ func settingsFromConfig(cfg config) settings {
 		Hostname:      cfg.Hostname,
 		WebAddr:       cfg.WebAddr,
 		HTTPProxyAddr: cfg.HTTPProxyAddr,
-		SunshineHosts: append([]sunshineHost{}, cfg.SunshineHosts...),
 		Forwards:      append([]forwardRule{}, cfg.Forwards...),
 		UDPPorts:      append([]uint16{}, cfg.UDPPorts...),
 		BlockedPorts:  append([]uint16{}, cfg.BlockedPorts...),
@@ -94,9 +92,6 @@ func (s *settings) validate() error {
 		if err := validListenAddr(s.HTTPProxyAddr); err != nil {
 			return fmt.Errorf("HTTP proxy address: %w", err)
 		}
-	}
-	if err := validateSunshineHosts(s.SunshineHosts); err != nil {
-		return err
 	}
 	if err := validateForwards(s.Forwards); err != nil {
 		return err
@@ -224,14 +219,9 @@ func (d *daemon) handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	cfg.Hostname = s.Hostname
 	cfg.WebAddr = s.WebAddr
 	cfg.HTTPProxyAddr = s.HTTPProxyAddr
-	if s.SunshineHosts != nil {
-		// The settings form leaves the Sunshine hosts out: they have a
-		// panel of their own.
-		cfg.SunshineHosts = s.SunshineHosts
-	}
 	if s.Forwards != nil {
-		// Like the Sunshine hosts, the forwards have a panel of their own
-		// and are left alone when the settings form does not send them.
+		// The forwards have a panel of their own and are left alone
+		// when the settings form does not send them.
 		cfg.Forwards = s.Forwards
 	}
 	cfg.UDPPorts = s.UDPPorts

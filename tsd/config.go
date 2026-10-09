@@ -26,13 +26,6 @@ type config struct {
 	HTTPProxyAddr string `json:"httpProxyAddr"`
 	// ControlURL selects a coordination server other than Tailscale's.
 	ControlURL string `json:"controlURL,omitempty"`
-	// SunshineHosts are tailnet devices running Sunshine. Their streaming
-	// ports are forwarded from 127.0.0.1, so a Moonlight client on the
-	// console can use 127.0.0.1 as the host.
-	SunshineHosts []sunshineHost `json:"sunshineHosts,omitempty"`
-	// SunshineHost is the single-host setting of earlier versions. It is
-	// folded into SunshineHosts when the config is loaded.
-	SunshineHost string `json:"sunshineHost,omitempty"`
 	// Forwards are extra local forwards: a localhost port on the console
 	// relayed to a host on the tailnet.
 	Forwards []forwardRule `json:"forwards,omitempty"`
@@ -103,13 +96,6 @@ func (cfg *config) normalize() {
 	}
 	if cfg.WebAddr == "" {
 		cfg.WebAddr = ":8090"
-	}
-	if cfg.SunshineHost != "" {
-		known := slices.ContainsFunc(cfg.SunshineHosts, func(h sunshineHost) bool { return h.Host == cfg.SunshineHost })
-		if !known {
-			cfg.SunshineHosts = append(cfg.SunshineHosts, sunshineHost{Host: cfg.SunshineHost})
-		}
-		cfg.SunshineHost = ""
 	}
 	if cfg.ReceiveDir == "" {
 		cfg.ReceiveDir = defaultReceiveDir

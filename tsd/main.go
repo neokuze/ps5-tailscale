@@ -254,7 +254,7 @@ func (d *daemon) dialTailnet(ctx context.Context, network, addr string) (net.Con
 func (d *daemon) localForwardRules() []forwardRule {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return append(sunshineRules(d.cfg.SunshineHosts), d.cfg.Forwards...)
+	return append([]forwardRule{}, d.cfg.Forwards...)
 }
 
 // networkChanged is called when a listening socket has died and been

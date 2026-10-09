@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -16,8 +15,7 @@ import (
 // Tailscale runs inside this process, not in the PS5's network stack, so
 // other apps cannot open connections to tailnet addresses. A forward listens
 // on a localhost port and relays to a tailnet host; the app connects to
-// 127.0.0.1 instead. TCP and UDP are both supported, which is what game
-// streaming (Moonlight to a Sunshine host) needs.
+// 127.0.0.1 instead. TCP and UDP are both supported.
 
 // forwardRule is one local forward.
 type forwardRule struct {
@@ -28,86 +26,6 @@ type forwardRule struct {
 
 func (r forwardRule) String() string {
 	return fmt.Sprintf("%s %s -> %s", r.Proto, r.Listen, r.Target)
-}
-
-// sunshineHost is a device on the tailnet that runs Sunshine.
-type sunshineHost struct {
-	Host string `json:"host"`
-	// Port is Sunshine's "port" setting, which all its other ports are
-	// derived from. 0 means the default, 47989.
-	Port int `json:"port,omitempty"`
-}
-
-const sunshineDefaultPort = 47989
-
-func (h sunshineHost) basePort() int {
-	if h.Port == 0 {
-		return sunshineDefaultPort
-	}
-	return h.Port
-}
-
-// Sunshine's ports as offsets from its "port" setting.
-var (
-	sunshineTCPOffsets = []int{-5, 0, 21}     // HTTPS, HTTP, RTSP
-	sunshineUDPOffsets = []int{9, 10, 11, 13} // video, control, audio, microphone
-)
-
-// rules returns the forwards that make this Sunshine host appear on
-// 127.0.0.1, on the same ports it really uses. The ports have to match: the
-// host tells the Moonlight client which ports to connect to.
-func (h sunshineHost) rules() []forwardRule {
-	var rules []forwardRule
-	add := func(proto string, offsets []int) {
-		for _, off := range offsets {
-			port := strconv.Itoa(h.basePort() + off)
-			rules = append(rules, forwardRule{proto, net.JoinHostPort("127.0.0.1", port), net.JoinHostPort(h.Host, port)})
-		}
-	}
-	add("tcp", sunshineTCPOffsets)
-	add("udp", sunshineUDPOffsets)
-	return rules
-}
-
-// clientAddress is what to enter as the host in a Moonlight client on the
-// console to reach this Sunshine host.
-func (h sunshineHost) clientAddress() string {
-	if h.basePort() == sunshineDefaultPort {
-		return "127.0.0.1"
-	}
-	return net.JoinHostPort("127.0.0.1", strconv.Itoa(h.basePort()))
-}
-
-// sunshineRules returns the forwards for all hosts.
-func sunshineRules(hosts []sunshineHost) []forwardRule {
-	var rules []forwardRule
-	for _, h := range hosts {
-		rules = append(rules, h.rules()...)
-	}
-	return rules
-}
-
-// validateSunshineHosts checks that the hosts can be forwarded side by side.
-// They all share 127.0.0.1, so each needs its own set of ports, which means
-// each must use a different port setting in Sunshine.
-func validateSunshineHosts(hosts []sunshineHost) error {
-	used := map[string]string{}
-	for _, h := range hosts {
-		if h.Host == "" || !validHostName(h.Host) {
-			return fmt.Errorf("%q does not look like a host name or address", h.Host)
-		}
-		if p := h.basePort(); p < 1024+5 || p > 65535-21 {
-			return fmt.Errorf("port %d for %s is out of range", p, h.Host)
-		}
-		for _, r := range h.rules() {
-			key := r.Proto + " " + r.Listen
-			if other, taken := used[key]; taken {
-				return fmt.Errorf("%s and %s use overlapping ports; give each Sunshine host its own port setting", other, h.Host)
-			}
-			used[key] = h.Host
-		}
-	}
-	return nil
 }
 
 type dialFunc func(ctx context.Context, network, addr string) (net.Conn, error)

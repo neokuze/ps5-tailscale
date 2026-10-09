@@ -112,7 +112,7 @@ func TestPasswordProtection(t *testing.T) {
 				t.Errorf("GET %s from %s: %d, want 401", path, remote, w.Code)
 			}
 		}
-		for _, path := range []string{"/api/logout", "/api/quit", "/api/uninstall", "/api/config", "/api/sunshine", "/api/login"} {
+		for _, path := range []string{"/api/logout", "/api/quit", "/api/uninstall", "/api/config", "/api/login"} {
 			if w := request(t, h, "POST", path, remote, nil, nil); w.Code != http.StatusUnauthorized {
 				t.Errorf("POST %s from %s: %d, want 401", path, remote, w.Code)
 			}
@@ -235,7 +235,6 @@ func TestSettingsRoundTrip(t *testing.T) {
 		"proxy":    func(s *settings) { s.HTTPProxyAddr = "nonsense" },
 		"priority": func(s *settings) { s.Priority = "turbo" },
 		"forward":  func(s *settings) { s.Forwards = []forwardRule{{"sctp", "127.0.0.1:1", "a:1"}} },
-		"sunshine": func(s *settings) { s.SunshineHosts = []sunshineHost{{Host: "a"}, {Host: "b"}} },
 		"password": func(s *settings) { p := "abc"; s.Password = &p },
 	} {
 		bad := settingsFromConfig(d.cfg)
@@ -251,14 +250,12 @@ func TestSettingsRoundTrip(t *testing.T) {
 
 func TestConfigMigration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
-	// A config as v0.4.1 wrote it.
+	// A config as v0.4.1 wrote it; its Sunshine host is no longer used and is
+	// ignored.
 	os.WriteFile(path, []byte(`{"hostname":"ps5","webAddr":":8090","httpProxyAddr":"127.0.0.1:8118","sunshineHost":"gaming-pc","udpPorts":[9295,9296,9297,9302]}`), 0o600)
 	cfg, err := loadConfig(path)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if len(cfg.SunshineHosts) != 1 || cfg.SunshineHosts[0].Host != "gaming-pc" || cfg.SunshineHost != "" {
-		t.Errorf("sunshine host not migrated: %+v", cfg)
 	}
 	if cfg.HTTPProxyAddr != "127.0.0.1:8118" {
 		t.Errorf("an explicitly configured proxy must stay on: %q", cfg.HTTPProxyAddr)

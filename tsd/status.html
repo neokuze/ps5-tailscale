@@ -149,7 +149,7 @@
         <li><strong>Your other devices can reach this PS5</strong> at its Tailscale address, from anywhere: FTP, the
           payload loader, Remote Play, anything that listens on the console.</li>
         <li><strong>The PS5 can reach a device on your tailnet</strong> through an address on the console itself. Set
-          that up under "Reach a device from this PS5"; game streaming has its own panel.</li>
+          that up under "Reach a device from this PS5".</li>
         <li><strong>It is not a full VPN.</strong> Games, PSN and the PS5's browser keep using your normal internet
           connection, the console's public IP address does not change, and the console cannot use an exit node. The
           PS5 has no way to route its own traffic through Tailscale.</li>
@@ -202,26 +202,9 @@
       <button id="btn-fwds">Save</button>
     </div>
     <p class="hint">Example: a media server on port 8096 of <i>my-nas</i> becomes <code>127.0.0.1:8096</code> on the
-      PS5. Pages that insist on their own name, and HTTPS sites, may not work this way. Game streaming has its own
-      panel below.</p>
+      PS5. Pages that insist on their own name, and HTTPS sites, may not work this way.</p>
     <p class="okmsg hidden" id="fwdok"></p>
     <p class="msg hidden" id="fwdmsg"></p>
-  </section>
-
-  <section class="panel hidden" id="streampanel">
-    <h2>Game streaming (Moonlight to Sunshine)</h2>
-    <p class="note">Apps on the PS5 cannot reach tailnet addresses directly. List the devices that run Sunshine and
-      their streaming ports are made available on this console. In your Moonlight client on the PS5 (for example
-      ProsperoLight), add the address shown for each host.</p>
-    <div id="hostrows"></div>
-    <datalist id="peernames"></datalist>
-    <div class="actions">
-      <button id="btn-addhost" class="small">Add a host</button>
-      <button id="btn-sunshine">Save</button>
-    </div>
-    <p class="hint">Port is Sunshine's own port setting; leave it empty for the default (47989). Two hosts need
-      different ports.</p>
-    <p class="note" id="sunshine-state" style="margin: 12px 0 0"></p>
   </section>
 
   <section class="panel hidden" id="rppanel">
@@ -360,8 +343,6 @@ const labels = {
   Running: ['Connected', 'ok'],
 };
 let shownQR = '';
-let hostsDirty = false;   // the user is editing the Sunshine hosts
-let lastHosts = '';
 
 // api performs a request to the daemon. A 401 means the page is locked.
 async function api(path, options) {
@@ -453,30 +434,6 @@ function testLink(target, title) {
   b.onclick = () => testTarget(target(), res);
   span.append(b, ' ', res);
   return span;
-}
-
-function hostRow(host, port) {
-  const div = document.createElement('div');
-  div.className = 'hostrow'; div.style.flexWrap = 'wrap';
-  const h = document.createElement('input');
-  h.type = 'text'; h.className = 'host'; h.placeholder = 'Device name or address'; h.value = host || '';
-  h.setAttribute('list', 'peernames'); h.setAttribute('aria-label', 'Sunshine host'); h.autocomplete = 'off';
-  const p = document.createElement('input');
-  p.type = 'number'; p.className = 'port'; p.placeholder = '47989'; p.min = 1029; p.max = 65514;
-  p.value = port && port !== 47989 ? port : ''; p.setAttribute('aria-label', 'Sunshine port');
-  const x = document.createElement('button');
-  x.type = 'button'; x.className = 'small'; x.textContent = 'Remove';
-  x.onclick = () => { div.remove(); hostsDirty = true; };
-  h.oninput = p.oninput = () => { hostsDirty = true; };
-  // Whether Sunshine on that device answers: its web port is the one the
-  // Moonlight client talks to first.
-  const t = testLink(() => {
-    const name = h.value.trim();
-    return (name.includes(':') ? '[' + name + ']' : name) + ':' + (parseInt(p.value, 10) || 47989);
-  }, 'Check whether Sunshine on this device answers');
-  t.style.flex = '1 1 100%'; t.style.fontSize = '14px';
-  div.append(h, p, x, t);
-  return div;
 }
 
 // The device list. Peers come sorted from the daemon (online first); the page
@@ -711,9 +668,6 @@ async function refresh() {
   $('peervpn-text').textContent = 'Show VPN exit servers (' + s.vpnServers.total + ')';
   renderPeers();
 
-  // Game streaming. The rows are only rebuilt from the daemon's state while
-  // the user is not in the middle of editing them.
-  $('streampanel').classList.toggle('hidden', s.state !== 'Running' && !s.sunshineHosts.length);
   $('peernames').replaceChildren(...devices.map(p => { const o = document.createElement('option'); o.value = p.name; return o; }));
   $('reachpanel').classList.toggle('hidden', s.state !== 'Running' && !s.userForwards.length);
   const fwdsNow = JSON.stringify(s.userForwards);
@@ -721,15 +675,6 @@ async function refresh() {
     lastFwds = fwdsNow;
     $('fwdrows').replaceChildren(...s.userForwards.map(fwdRow));
   }
-  const hostsNow = JSON.stringify(s.sunshineHosts);
-  if (!hostsDirty && hostsNow !== lastHosts) {
-    lastHosts = hostsNow;
-    $('hostrows').replaceChildren(...s.sunshineHosts.map(h => hostRow(h.host, h.port)));
-  }
-  $('sunshine-state').textContent = s.sunshineHosts.length
-    ? s.sunshineHosts.map(h => h.host + ': add ' + h.address + ' in Moonlight').join('. ') + '.'
-    : 'No Sunshine host is forwarded.';
-
   // Devices to wake.
   $('rppanel').classList.toggle('hidden', s.state !== 'Running');
   $('rpaddr').textContent = s.dnsName || (s.ips && s.ips[0]) || 'its tailnet address';
@@ -807,7 +752,7 @@ let updateRefused = '';   // why the daemon would not start an update
 let autoloadWarning = '';
 $('btn-update').onclick = async () => {
   const v = $('btn-update').textContent.replace('Install ', '');
-  if (!confirm('Download and install version ' + v + '?\n\nTailscale on this PS5 restarts, which interrupts a stream or Remote Play session that runs through it.\n\n' + autoloadWarning)) return;
+  if (!confirm('Download and install version ' + v + '?\n\nTailscale on this PS5 restarts, which interrupts a Remote Play session that runs through it.\n\n' + autoloadWarning)) return;
   updateRefused = '';
   try {
     const r = await api('/api/update', {method: 'POST'});
@@ -933,19 +878,6 @@ $('btn-wakes').onclick = async () => {
 
 // The diagnostics file is a plain download; the session cookie covers it.
 $('btn-diag').onclick = () => { location.href = '/api/diagnostics'; };
-
-// Game streaming hosts.
-$('btn-addhost').onclick = () => { $('hostrows').append(hostRow('', 0)); hostsDirty = true; };
-$('btn-sunshine').onclick = async () => {
-  const hosts = [];
-  for (const div of $('hostrows').children) {
-    const host = div.querySelector('.host').value.trim();
-    const port = parseInt(div.querySelector('.port').value, 10) || 0;
-    if (host) hosts.push({host: host, port: port});
-  }
-  hostsDirty = false; lastHosts = '';
-  await act('/api/sunshine', '', hosts);
-};
 
 // Settings.
 const ports = text => text.split(/[\s,]+/).filter(x => x).map(x => parseInt(x, 10));

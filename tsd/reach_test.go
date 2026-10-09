@@ -89,7 +89,6 @@ func TestSettingsLeaveForwardsAlone(t *testing.T) {
 
 	s := settingsFromConfig(cfg)
 	s.Forwards = nil
-	s.SunshineHosts = nil
 	body, _ := json.Marshal(s)
 	rec := httptest.NewRecorder()
 	d.handleSetConfig(rec, httptest.NewRequest("POST", "/api/config", bytes.NewReader(body)))
@@ -162,7 +161,6 @@ func TestCheckForwardPorts(t *testing.T) {
 	free := freePort(t)
 
 	cfg := defaultConfig()
-	cfg.SunshineHosts = []sunshineHost{{Host: "gaming-pc"}}
 	d := &daemon{cfg: cfg, logf: t.Logf, webPort: 8090, proxyPort: 8118}
 	d.fwd = newForwarder(nil, t.Logf)
 	defer d.fwd.set(nil)
@@ -174,8 +172,6 @@ func TestCheckForwardPorts(t *testing.T) {
 		"a free port":               {forwardRule{"tcp", free, "nas:80"}, true},
 		"the status page's port":    {forwardRule{"tcp", "127.0.0.1:8090", "nas:80"}, false},
 		"the proxy's port":          {forwardRule{"tcp", "127.0.0.1:8118", "nas:80"}, false},
-		"a game streaming port":     {forwardRule{"tcp", "127.0.0.1:47989", "nas:80"}, false},
-		"a game streaming UDP port": {forwardRule{"udp", "127.0.0.1:47998", "nas:80"}, false},
 		"UDP on the page's port":    {forwardRule{"udp", "127.0.0.1:8090", "nas:80"}, true},
 		"a port something else has": {forwardRule{"tcp", busy, "nas:80"}, false},
 	} {

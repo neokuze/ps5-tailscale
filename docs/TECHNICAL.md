@@ -44,12 +44,7 @@ way is a failure in the SDK's crt, which runs before any of this.
   minutes.
 - Outbound: local forwards (`localforward.go`) listen on localhost and relay
   TCP and UDP to a tailnet host through `tsnet.Server.Dial`. UDP is relayed
-  per client address with an idle timeout. Each Sunshine host is a preset of
-  seven such forwards on the ports that host really uses, derived from
-  Sunshine's port setting (HTTPS -5, HTTP +0, RTSP +21, video +9, control
-  +10, audio +11, microphone +13). The ports cannot be remapped, because the
-  host tells the Moonlight client which ports to use; several hosts can only
-  coexist on 127.0.0.1 if their Sunshine ports differ.
+  per client address with an idle timeout.
 - A status page and JSON API on port 8090 (`web.go`, `settings.go`), an
   optional HTTP proxy, PS5 notifications by writing a request to
   `/dev/notification0`.

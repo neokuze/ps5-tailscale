@@ -8,8 +8,9 @@ Puts a jailbroken PS5 on your [Tailscale](https://tailscale.com) network.
 - **Remote Play over Tailscale.** Play the PS5 from anywhere with a Remote
   Play client, at the console's tailnet address, with no port forwarding on
   your router.
-- **Stream games to the console over Tailscale.** A Moonlight client on the
-  PS5 (such as ProsperoLight) can connect to a Sunshine host on your tailnet.
+- **Pair a Remote Play client from anywhere.** The status page makes the
+  pairing PIN and shows the account ID that Chiaki and other clients ask for,
+  so a new device can be registered without being at home.
 - **Home screen icon** that opens its status page.
 
 It runs the real Tailscale client code (v1.104.0) as a single payload.
@@ -30,8 +31,7 @@ VPN here. It runs inside one process:
 - Apps and the browser on the console cannot open tailnet addresses, and the
   console's own IP address does not change. They can reach a device on your
   tailnet through an address on the console itself: see
-  [reaching a device from the PS5](#reaching-a-device-from-the-ps5) and
-  [game streaming](#game-streaming-moonlight-to-sunshine).
+  [reaching a device from the PS5](#reaching-a-device-from-the-ps5).
 - No subnet routing, Tailscale SSH or Funnel. Taildrop works for receiving
   files, not for sending them.
 - The console cannot use an exit node, and it does not offer itself as one.
@@ -117,11 +117,21 @@ a Remote Play client on any of your Tailscale devices can connect from
 anywhere. Any client that lets you enter the console's address works.
 
 1. On the console, enable Remote Play (Settings > System > Remote Play).
-2. Register your Remote Play client with the console as usual. This is
-   easiest at home on the same network; see the client's documentation.
-3. In the client, add the console manually with its **tailnet address**
-   (shown on the status page).
+2. In the client, add the console manually with its **tailnet address**
+   (shown on the status page). Finding consoles automatically does not work
+   over Tailscale.
+3. Register the client: on the status page, under **Remote Play from
+   anywhere**, press **Make a PIN**. Enter the PIN and the account ID it
+   shows in the client. The PIN is valid for five minutes, and the page says
+   when the client has been paired. This works from anywhere, as long as the
+   device you pair is on your tailnet.
 4. Connect.
+
+The pairing uses the account of the user signed in on the console (or, on the
+home screen, the first signed-in user with a PSN-activated account). The
+**Accounts on this console** list shows every user and their account ID.
+How it works: a small helper payload (`rpair/`), sent to the ELF loader
+like the icon helper, calls the console's own Remote Play library.
 
 Tested and working with Chiaki, and with Asobi on iOS and Android.
 
@@ -156,7 +166,7 @@ Tailscale's rule. Sending files from the console is not implemented.
 
 `http://<console address>:8090`, on the LAN or over the tailnet, or the
 **Tailscale** icon on the home screen. It shows the connection state, the
-login link and your devices, and has the game streaming hosts, the settings,
+login link and your devices, Remote Play pairing, the settings,
 and buttons for logging out, stopping and uninstalling.
 
 **Updates.** When a newer release exists the page says so, and the console
@@ -212,48 +222,6 @@ forwards, the HTTP proxy, the folder for received files, the payload file to
 keep up to date, the priority, and update checks. Most take effect when saved; the page says which
 ones need Tailscale to be started again.
 
-### Game streaming (Moonlight to Sunshine)
-
-This lets a Moonlight client on the PS5 stream from a PC that is somewhere
-else, over Tailscale.
-
-On the PC:
-
-1. Install [Sunshine](https://github.com/LizardByte/Sunshine).
-2. Install Tailscale and log in to the same tailnet as the console.
-
-On the console:
-
-1. Open the status page and find **Game streaming**.
-2. Press **Add a host**, enter the device that runs Sunshine and press
-   **Save**. The page then shows what to enter in Moonlight.
-3. In your Moonlight client on the PS5, add a host manually with the address
-   **`127.0.0.1`**. Do not enter the PC's tailnet address: the client cannot
-   reach it.
-4. Pair as usual: the client shows a PIN, which you enter in Sunshine's web
-   interface on the PC.
-
-How it works: the daemon listens on `127.0.0.1` on Sunshine's ports (by
-default TCP 47984, 47989, 48010 and UDP 47998, 47999, 48000, 48002) and
-relays them to the host through Tailscale. To the Moonlight client the
-Sunshine host appears to be the console itself.
-
-More than one host, or a host that does not use the default port:
-
-- If a host's Sunshine is set to another port (Sunshine's "Port" setting),
-  enter that port next to the host. In Moonlight, add `127.0.0.1:<port>`.
-- Several hosts can be forwarded at once, but they all appear on
-  `127.0.0.1`, so each needs its own port: give every host a different port
-  in Sunshine, at least 30 apart (for example 47989 and 48989).
-
-Notes:
-
-- A wired connection on the console helps, as with any streaming.
-- **Do not change the console's network (Wi-Fi to Ethernet, connection
-  settings) while a stream is running.** That froze the test console once;
-  the cause was not established.
-- Tested with ProsperoLight.
-
 ### Reaching a device from the PS5
 
 The PS5's browser and apps cannot open a tailnet address such as
@@ -276,8 +244,7 @@ the connection anyway.
 **test** next to a line tries the connection the way the PS5 would make it
 and says what happened: the device answers, the device answered but nothing
 listens on that port, there is no answer (off, asleep or firewalled), or
-there is no device with that name. The game streaming hosts have the same
-link, which checks whether Sunshine answers.
+there is no device with that name.
 
 ### Waking a PC at home
 
@@ -320,10 +287,6 @@ optional.
   "passwordHash": "",
   "httpProxyAddr": "",
   "controlURL": "",
-  "sunshineHosts": [
-    {"host": "gaming-pc"},
-    {"host": "office-pc", "port": 48989}
-  ],
   "forwards": [
     {"proto": "tcp", "listen": "127.0.0.1:8096", "target": "my-nas:8096"}
   ],
@@ -346,7 +309,6 @@ optional.
 | `passwordHash` | The status page's password, hashed. Set it on the status page; delete the field to remove a forgotten password. |
 | `httpProxyAddr` | Where the HTTP proxy listens. Empty, the default, is off. |
 | `controlURL` | A coordination server other than Tailscale's. File only. |
-| `sunshineHosts` | The Sunshine hosts and, where it is not 47989, their port. |
 | `forwards` | What "Reach a device from this PS5" sets up: `proto` is `tcp` or `udp`, `listen` the address on the console, `target` a tailnet device and port. |
 | `udpPorts` | The console's UDP ports reachable from the tailnet. Default `[9295, 9296, 9297, 9302]` (Remote Play). `[]` turns inbound UDP off. |
 | `blockedPorts` | Local TCP ports that are never exposed to the tailnet. |
@@ -396,10 +358,6 @@ Left to do by hand:
   whatever follows that line is the crash report to send.
 - **The status page does not open on the console, but does from a PC.**
   Check that the PS5's proxy server setting is "Do Not Use".
-- **The Moonlight client cannot find the host.** The host to add is
-  `127.0.0.1` (or `127.0.0.1:<port>` for a host on another port), and the
-  Sunshine host must be listed on the status page with the port its Sunshine
-  uses.
 - **It stays on "Starting", or the update check never finds anything.** The
   daemon looks names up itself: at a DNS payload on the console
   (`127.0.0.1:53`) if one is running, otherwise at your router, otherwise at
@@ -461,8 +419,7 @@ equal terms.
 
 Tested on the one console: first run and upgrade, login with device approval,
 starting again after a reboot with the saved login, reaching the console over
-the tailnet, a ProsperoLight stream from a Sunshine host through the forward,
-two forwarded hosts on different ports (with a stand-in for the second), the
+the tailnet, the
 HTTP proxy, adding and removing the home screen icon, the password from the
 LAN and the tailnet, changing settings from the page, both priority settings,
 the update check, installing an update from the page (rehearsed with a test
@@ -480,7 +437,7 @@ Not tested: whether a PC actually wakes from the Wake button (the console
 reports sending the packets; no sleeping PC was at hand), switching between
 Wi-Fi and Ethernet while running, rest mode on Wi-Fi, the complete Uninstall
 on a console (its parts were tested separately), whether High priority
-improves Remote Play, a real Sunshine host on a non-default port, other
+improves Remote Play, pairing from the status page (new in this fork), other
 firmware versions, coordination servers other than Tailscale's.
 
 ## Building

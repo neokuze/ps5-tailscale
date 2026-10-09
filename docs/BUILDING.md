@@ -33,11 +33,16 @@ These folders are not in the repository.
    `goroot`, apply the patch, and rebuild the go command and the linker (the
    patch changes a package both of them compile in):
 
+   Apply the patch with `--directory=goroot` from the repository folder: run
+   inside `goroot`, git treats it as part of this repository and skips every
+   file without saying so. Run the build scripts with PowerShell 7 (`pwsh`);
+   Windows PowerShell 5.1 loses the quotes in the compiler flags.
+
    ```powershell
    tar -xf go1.27.1.windows-amd64.zip
    Rename-Item go goroot
+   git -c core.autocrlf=false apply --directory=goroot -p1 patches\go1.27.1-ps5.patch
    Set-Location goroot
-   git -c core.autocrlf=false apply -p1 ..\patches\go1.27.1-ps5.patch
    Copy-Item bin\go.exe bin\go-bootstrap.exe
    $env:GOTOOLCHAIN = 'local'
    .\bin\go-bootstrap.exe install cmd/go cmd/link
